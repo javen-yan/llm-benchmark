@@ -1,17 +1,39 @@
-# 示例：用内置 Mock 引擎 + 本地 mock-target 跑一次 benchmark。
+# LLM Benchmark Spec v2（对应参考设计 §4）
 # 先起模拟目标：bench mock-target --listen :9000
 # 再提交：bench run -f examples/spec-mock.yaml
 name: mock-smoke-test
+
 target:
-  base_url: http://127.0.0.1:9000
+  endpoint: http://127.0.0.1:9000   # OpenAI Compatible 地址
+  protocol: openai
   model: mock-llm
-engine: mock
-workload:
-  concurrency: 4
-  requests: 40
+
+engine:
+  type: mock                          # mock | guidellm
+
+dataset:
+  type: random
   input_tokens: 128
   output_tokens: 32
+  seed: 42
+
+load:
+  mode: closed_loop                   # closed_loop | open_loop | poisson
+  concurrency: 4
+  requests: 40                        # 与 duration 二选一
+  # duration: 300s
+  # rate: 10                          # open_loop / poisson 必填（req/s）
   stream: true
-slo:
+
+# warmup:
+#   duration: 30s                     # 预热请求不计入指标
+
+# metrics: [llm.ttft, llm.tpot, llm.e2e]  # 为空 = 全部核心指标
+# collectors: [system]                    # 为空 = 默认 system
+# probes: []                              # 默认不启用
+
+thresholds:                           # SLO 判定（报告里给出通过/违例）
   p99_latency_ms: 5000
   min_tps: 10
+  max_ttft_ms: 2000
+  error_rate: 0.01

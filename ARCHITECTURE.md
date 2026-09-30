@@ -29,21 +29,27 @@
 5. **单二进制交付**：前端 `npm run build` → `web/dist` → `go:embed` 进 server；
    CLI 独立 `bench` 二进制。Docker/K8s 部署进 Phase 2。
 
-## 三、Phase 1 MVP 范围（本次落地）
+## 三、Phase 1 MVP 范围（2026-09-30，v2 重构后落地）
 
 - [x] Go 模块骨架，Gin + GORM + SQLite/PostgreSQL
-- [x] Benchmark Spec YAML 解析与校验
-- [x] Engine 接口 + 注册表；GuideLLM Adapter；Mock 引擎
-- [x] RunManager：pending→running→succeeded/failed/cancelled 状态机，异步执行
-- [x] Analyzer：请求事件→聚合指标（TTFT/TPOT/P99/TPS/RPS）
-- [x] REST API：`POST /api/v1/runs`、`GET /api/v1/runs`、`GET /api/v1/runs/:id`、`GET /api/v1/runs/:id/metrics`、`GET /api/v1/runs/:id/report`
-- [x] CLI：`bench run -f spec.yaml`、`bench list`、`bench get <id>`、`bench mock-target`
-- [x] Web UI：运行列表 / 新建运行 / 运行详情（ECharts 曲线+指标卡），已嵌入 Go 单二进制
-- [x] 端到端验证：mock-target → Mock 引擎跑完一次 → API 确认指标 → Web UI 冒烟通过
+- [x] Benchmark Spec v2 YAML 解析与校验（target/engine/dataset/load/warmup/thresholds）
+- [x] Engine 接口 + 注册表：Name/Capabilities/Prepare/Run/Cancel；GuideLLM Adapter（CLI 检测+参数生成+报告解析，fixture 测试）；Mock 引擎（closed_loop/open_loop/poisson/warmup/SSE 逐 token 计时）
+- [x] RunManager：`created→preparing→warming_up→running→normalizing→analyzing→completed` 状态机（可 failed/cancelled），异步执行
+- [x] 事件归一化：所有引擎输出统一为 `RequestEvent`；Analyzer 全分位聚合（min/avg/p50/p75/p90/p95/p99/max）
+- [x] Metric Registry：动态指标注册，`metric_value` 按行存储（50+ 指标行/运行），无固定指标列
+- [x] Snapshot：每次运行保存 spec/引擎/数据集/硬件，可复现
+- [x] Collector 插件接口 + 内置 system 采集（CPU/内存/负载/网络）；Probe 接口预留
+- [x] REST API：runs CRUD/cancel、metrics 实时点、system 样本、report（JSON/CSV）、snapshot、compare（含公平性校验）、engines、metrics/definitions
+- [x] CLI：`bench run/list/get/report/cancel/compare/mock-target`
+- [x] Web UI：运行列表 / 新建（v2 表单）/ 运行详情（指标总表+ECharts+系统曲线+Snapshot+SLO）/ 对比页，已嵌入 Go 单二进制
+- [x] 端到端验证：mock-target → Mock 引擎（closed_loop 40 请求 + open_loop 20 请求）→ API 确认 50 指标行 → Web UI 冒烟通过；`go test ./...` 6 个包全过
 
 ## 四、Phase 2+ 预留（接口已留，不实现）
 
-- 结果对比（多 run 并排）、SLO 判定、自动容量边界搜索、报告 PDF/HTML
-- Collector 插件（DCGM/NVML）、Probe 插件（iperf3/NCCL/RDMA 预检）
-- vLLM Adapter、Native Engine、分布式 Agent、Prometheus 时序、对象存储
+- 自动容量边界搜索、报告 PDF/HTML、Prometheus 时序、对象存储
+- Collector 插件（DCGM/NVML）、Probe 具体实现（iperf3/NCCL/RDMA 预检）
+- vLLM Adapter、Native Engine、分布式 Agent
 - 多租户/权限、Docker/Kubernetes 部署 manifests
+
+> 说明：GuideLLM Adapter 已实现 CLI 契约（检测/参数生成/报告解析）并通过 fixture 测试，
+> 但尚未在真实 GPU 环境跑通 `guidellm` CLI 全流程；生产使用前需在目标环境实测验证。

@@ -42,23 +42,34 @@ bench report <run-id>
 
 或用 Web UI：打开 http://127.0.0.1:8080 → 新建 Benchmark → 填写表单提交 → 详情页看曲线。
 
-## Benchmark Spec（YAML）
+## Benchmark Spec（YAML v2，对应参考设计 §4）
 
 ```yaml
 name: mock-smoke-test
 target:
-  base_url: http://127.0.0.1:9000   # OpenAI Compatible 地址
+  endpoint: http://127.0.0.1:9000   # OpenAI Compatible 地址
+  protocol: openai
   model: mock-llm
-engine: mock                        # mock | guidellm
-workload:
-  concurrency: 4
-  requests: 40
+engine:
+  type: mock                        # mock | guidellm
+dataset:
+  type: random
   input_tokens: 128
   output_tokens: 32
+  seed: 42
+load:
+  mode: closed_loop                 # closed_loop | open_loop | poisson
+  concurrency: 4
+  requests: 40                      # 与 duration 二选一
+  # rate: 20                        # open_loop / poisson 必填（req/s）
   stream: true
-slo:                                # 可选，报告里判定通过/违例
-  p99_latency_ms: 5000
+# warmup:
+#   duration: 30s                   # 预热请求不计入指标
+thresholds:                         # SLO 判定
+  ttft_p99: 2000
   min_tps: 10
+  error_rate: 0.01
+  p99_latency_ms: 5000
 ```
 
 ## CLI
@@ -68,7 +79,9 @@ slo:                                # 可选，报告里判定通过/违例
 | `bench run -f spec.yaml` | 提交压测（默认连本地 :8080，用 `--server` 指定） |
 | `bench list` | 运行列表 |
 | `bench get <id>` | 运行状态 |
-| `bench report <id>` | 聚合报告 JSON（含 SLO 判定） |
+| `bench report <id>` | 聚合报告（50+ 指标明细 + SLO 判定） |
+| `bench cancel <id>` | 取消运行中的任务 |
+| `bench compare <id1> <id2>` | 双运行对比（公平性校验 + 核心指标对照） |
 | `bench mock-target --listen :9000` | 本地 OpenAI Compatible 模拟目标（可调 `--ttft-ms` / `--tpot-ms`） |
 
 ## REST API
@@ -76,12 +89,24 @@ slo:                                # 可选，报告里判定通过/违例
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | /api/v1/runs | 提交（JSON 或 YAML body） |
-| GET | /api/v1/runs | 列表 |
-| GET | /api/v1/runs/:id | 详情 |
+| GET | /api/v1/runs | 列表（`?status=` 过滤） |
+| GET | /api/v1/runs/:id | 详情（含 spec 与 snapshot 摘要） |
 | POST | /api/v1/runs/:id/cancel | 取消 |
 | GET | /api/v1/runs/:id/metrics | 实时曲线采样点 |
+| GET | /api/v1/runs/:id/system | 系统采集样本（CPU/内存/负载/网络） |
 | GET | /api/v1/runs/:id/report | 聚合报告（`?format=csv` 导出） |
-| GET | /api/v1/engines | 引擎列表 |
+| GET | /api/v1/runs/:id/snapshot | 运行快照（spec/engine/数据集/硬件） |
+| GET | /api/v1/runs/compare?ids=a,b | 多运行对比 + 公平性校验 |
+| GET | /api/v1/engines | 引擎列表（含 capabilities） |
+| GET | /api/v1/metrics/definitions | Metric Registry 指标定义 |
+
+## 核心设计（对齐参考设计）
+
+- **Metric Registry**：指标动态注册（`llm.ttft/tpot/itl/e2e/queue_time` 直方图，`llm.request_rate/input_tps/output_tps/total_tps/error_rate` 等），`metric_value` 表按行存储，无固定指标列。
+- **归一化**：所有引擎输出统一为 `RequestEvent`（ScheduledAt/StartedAt/FirstTokenAt/FinishedAt、逐 token 延迟、HTTP 状态），Analyzer 只认归一化事件；引擎无法提供的数据不伪造（capabilities 如实声明）。
+- **Snapshot**：每次运行保存 spec、引擎版本、数据集、硬件信息，保证可复现；Compare 据此做公平性校验。
+- **Run 生命周期**：`created → preparing → warming_up → running → normalizing → analyzing → completed`（任意阶段可 `failed`/`cancelled`）。
+- **Collector / Probe 插件**：`Collector` / `Probe` 接口 + 注册表；内置 `system` collector（CPU/内存/负载/网络，被动采集）；probe 具体实现（iperf3/RDMA/NCCL）Phase 4 接入。
 
 ## 引擎
 
@@ -99,15 +124,18 @@ slo:                                # 可选，报告里判定通过/违例
 
 ```
 cmd/server        平台服务入口（Gin + Web UI 嵌入单二进制）
-cmd/bench         CLI（含 mock-target）
-internal/spec     YAML Spec 解析与校验
-internal/store    GORM 模型（Run / Summary / MetricPoint）
-internal/engine   引擎接口 + 注册表
-internal/engine/mock      内置压测引擎
+cmd/bench         CLI（含 mock-target、compare）
+internal/spec     Benchmark Spec v2 解析与校验
+internal/store    GORM 模型（Run / Snapshot / RequestEvent / MetricValue / MetricPoint / SystemSample）
+internal/metric   Metric Registry（指标定义 + 动态注册）
+internal/engine   BenchmarkEngine 接口（Name/Capabilities/Prepare/Run/Cancel）+ 注册表
+internal/engine/mock      内置压测引擎（closed_loop/open_loop/poisson/warmup）
 internal/engine/guidellm  GuideLLM 适配器
-internal/core     RunManager（异步状态机）
-internal/analyzer 指标聚合 + SLO 判定
-internal/api      REST API
+internal/core     RunManager（多阶段状态机 + collector 编排）
+internal/analyzer 指标聚合（全分位）+ SLO 判定
+internal/collector Collector 插件接口 + system 实现
+internal/probe    Probe 插件接口（预留）
+internal/api      REST API（含 compare/snapshot/definitions）
 internal/webui    Web UI 嵌入（Vite 构建产物）
 web/              前端源码（React + Ant Design + ECharts）
 examples/         示例 Spec
