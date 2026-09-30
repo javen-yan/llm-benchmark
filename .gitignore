@@ -1,0 +1,20 @@
+# Go
+*.exe
+*.dll
+*.so
+*.dylib
+bench
+server
+/dist/
+
+# 数据库（本地运行产生）
+*.db
+*.db-shm
+*.db-wal
+
+# 前端
+web/node_modules/
+web/dist/
+
+# 系统
+.DS_Store

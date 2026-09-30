@@ -1,0 +1,17 @@
+# 示例：用内置 Mock 引擎 + 本地 mock-target 跑一次 benchmark。
+# 先起模拟目标：bench mock-target --listen :9000
+# 再提交：bench run -f examples/spec-mock.yaml
+name: mock-smoke-test
+target:
+  base_url: http://127.0.0.1:9000
+  model: mock-llm
+engine: mock
+workload:
+  concurrency: 4
+  requests: 40
+  input_tokens: 128
+  output_tokens: 32
+  stream: true
+slo:
+  p99_latency_ms: 5000
+  min_tps: 10
