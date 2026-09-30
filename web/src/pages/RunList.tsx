@@ -1,30 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Space, Table, Tag, Typography, message, Popconfirm } from 'antd';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { cancelRun, formatTime, isActive, listRuns, Run } from '../api';
+import { PlusOutlined, ReloadOutlined, BarChartOutlined } from '@ant-design/icons';
+import {
+  cancelRun, formatTime, isActive, listRuns,
+  statusColor, statusText, Run, RunStatus,
+} from '../api';
 
 const { Title } = Typography;
-
-const statusColor: Record<string, string> = {
-  pending: 'default',
-  running: 'processing',
-  succeeded: 'success',
-  failed: 'error',
-  cancelled: 'warning',
-};
-
-const statusText: Record<string, string> = {
-  pending: '等待中',
-  running: '运行中',
-  succeeded: '成功',
-  failed: '失败',
-  cancelled: '已取消',
-};
 
 export default function RunList() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
   const navigate = useNavigate();
 
   const load = useCallback(async () => {
@@ -54,12 +42,27 @@ export default function RunList() {
     }
   };
 
+  const onCompare = () => {
+    if (selected.length < 2) {
+      message.warning('请至少选择 2 个运行进行对比');
+      return;
+    }
+    navigate(`/compare?ids=${selected.join(',')}`);
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Title level={3} style={{ margin: 0 }}>运行列表</Title>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>刷新</Button>
+          <Button
+            icon={<BarChartOutlined />}
+            disabled={selected.length < 2}
+            onClick={onCompare}
+          >
+            对比选中 ({selected.length})
+          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/new')}>新建测试</Button>
         </Space>
       </div>
@@ -67,13 +70,17 @@ export default function RunList() {
         rowKey="id"
         dataSource={runs}
         loading={loading}
+        rowSelection={{
+          selectedRowKeys: selected,
+          onChange: (keys) => setSelected(keys as string[]),
+        }}
         onRow={(r) => ({ onClick: () => navigate(`/runs/${r.id}`), style: { cursor: 'pointer' } })}
         columns={[
           { title: '名称', dataIndex: 'name', key: 'name' },
           { title: '引擎', dataIndex: 'engine', key: 'engine', width: 110 },
           {
-            title: '状态', dataIndex: 'status', key: 'status', width: 110,
-            render: (s: string) => <Tag color={statusColor[s] ?? 'default'}>{statusText[s] ?? s}</Tag>,
+            title: '状态', dataIndex: 'status', key: 'status', width: 120,
+            render: (s: RunStatus) => <Tag color={statusColor[s] ?? 'default'}>{statusText[s] ?? s}</Tag>,
           },
           {
             title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 180,
