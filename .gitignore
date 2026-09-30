@@ -15,6 +15,8 @@ server
 # 前端
 web/node_modules/
 web/dist/
+# 前端构建产物（大文件）：本地按 BUILD.md 构建，不进仓库
+internal/webui/dist/assets/
 
 # 系统
 .DS_Store

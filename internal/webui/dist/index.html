@@ -1,12 +1,28 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LLM Benchmark</title>
-    <script type="module" crossorigin src="./assets/index-BgmhQIg7.js"></script>
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Benchmark - 前端未构建</title>
+<style>
+body{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#0f1420;color:#e6e9f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.card{max-width:640px;padding:40px;background:#1a2130;border-radius:12px;border:1px solid #2a3448}
+h1{font-size:20px;margin:0 0 16px}
+p{color:#9aa4b8;line-height:1.8;font-size:14px}
+code{background:#0d1220;padding:2px 8px;border-radius:4px;color:#7dd3fc;font-size:13px}
+pre{background:#0d1220;padding:16px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.7;color:#c9d4e8}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>前端尚未构建</h1>
+<p>你看到这个页面，说明 Go 二进制里嵌入的是占位页面——前端 Web UI 还没有构建。请按以下步骤构建（详见仓库根目录 <code>BUILD.md</code>）：</p>
+<pre>cd web
+npm ci
+npm run build
+cd ..
+go build ./...</pre>
+<p>构建完成后重启 server 即可看到完整界面。API 不受影响，可直接调用 <code>/api/v1/*</code>。</p>
+</div>
+</body>
 </html>

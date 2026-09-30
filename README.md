@@ -14,6 +14,16 @@
                    └──────────────┘   └──────────────┘
 ```
 
+## 构建
+
+前端构建产物不进仓库，clone 后按顺序构建一次即可。完整步骤见 **[BUILD.md](BUILD.md)**。
+
+```bash
+cd web && npm ci && npm run build && cd ..  # 先前端
+go build -o bin/server ./cmd/server          # 后 Go（含 Web UI 单二进制）
+go build -o bin/bench ./cmd/bench
+```
+
 ## 快速开始
 
 ```bash
