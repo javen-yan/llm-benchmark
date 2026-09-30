@@ -38,8 +38,8 @@
 - [x] Analyzer：请求事件→聚合指标（TTFT/TPOT/P99/TPS/RPS）
 - [x] REST API：`POST /api/v1/runs`、`GET /api/v1/runs`、`GET /api/v1/runs/:id`、`GET /api/v1/runs/:id/metrics`、`GET /api/v1/runs/:id/report`
 - [x] CLI：`bench run -f spec.yaml`、`bench list`、`bench get <id>`、`bench mock-target`
-- [x] Web UI：运行列表 / 新建运行 / 运行详情（ECharts 曲线+指标卡）（构建中）
-- [x] 端到端验证：mock-target → Mock 引擎跑完一次 → API 确认指标（UI 待前端构建完成后验证）
+- [x] Web UI：运行列表 / 新建运行 / 运行详情（ECharts 曲线+指标卡），已嵌入 Go 单二进制
+- [x] 端到端验证：mock-target → Mock 引擎跑完一次 → API 确认指标 → Web UI 冒烟通过
 
 ## 四、Phase 2+ 预留（接口已留，不实现）
 
